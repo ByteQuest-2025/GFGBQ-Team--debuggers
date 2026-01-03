@@ -2,16 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_theme.dart';
 import 'home_screen.dart';
 
 class OtpScreen extends StatefulWidget {
   final String phoneNumber;
+  final String? name;
   final bool isRegistration;
 
   const OtpScreen({
     super.key,
     required this.phoneNumber,
+    this.name,
     required this.isRegistration,
   });
 
@@ -100,6 +101,9 @@ class _OtpScreenState extends State<OtpScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('is_logged_in', true);
     await prefs.setString('phone_number', widget.phoneNumber);
+    if (widget.name != null && widget.name!.isNotEmpty) {
+      await prefs.setString('user_name', widget.name!);
+    }
     if (widget.isRegistration) {
       await prefs.setBool('has_seen_onboarding', true);
     }

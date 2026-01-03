@@ -13,12 +13,14 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _phoneController = TextEditingController();
+  final _nameController = TextEditingController();
   bool _isLoading = false;
   bool _isLogin = true; // Toggle between login and registration
 
   @override
   void dispose() {
     _phoneController.dispose();
+    _nameController.dispose();
     super.dispose();
   }
 
@@ -45,6 +47,7 @@ class _LoginScreenState extends State<LoginScreen> {
       MaterialPageRoute(
         builder: (_) => OtpScreen(
           phoneNumber: _phoneController.text.trim(),
+          name: _isLogin ? null : _nameController.text.trim(),
           isRegistration: !_isLogin,
         ),
       ),
@@ -86,6 +89,48 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                 ),
                 const SizedBox(height: 48),
+                
+                // Name input (only for registration)
+                if (!_isLogin) ...[
+                  Text(
+                    'Name',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          color: AppColors.pureBlack,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _nameController,
+                    keyboardType: TextInputType.name,
+                    textCapitalization: TextCapitalization.words,
+                    decoration: InputDecoration(
+                      hintText: 'Enter your name',
+                      hintStyle: TextStyle(color: AppColors.blackSecondary),
+                      border: UnderlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.dividerColor),
+                      ),
+                      enabledBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.dividerColor),
+                      ),
+                      focusedBorder: UnderlineInputBorder(
+                        borderSide: BorderSide(color: AppColors.pureBlack, width: 1),
+                      ),
+                    ),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: AppColors.pureBlack,
+                        ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Please enter your name';
+                      }
+                      if (value.length < 2) {
+                        return 'Name must be at least 2 characters';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 32),
+                ],
                 
                 // Phone number input
                 Text(
