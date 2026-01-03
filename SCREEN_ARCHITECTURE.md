@@ -581,42 +581,42 @@ Challenge Screen
 │  3. REGISTRATION/LOGIN SCREEN                               │
 │                                                             │
 │  REGISTRATION FLOW:                                         │
-│  ┌─────────────────────────────────────┐                  │
-│  │ Step 1: Phone Number Input           │                  │
-│  │ - Enter country code (+91)           │                  │
-│  │ - Enter 10-digit phone number        │                  │
-│  │ - Tap "Continue"                     │                  │
-│  └─────────────────────────────────────┘                  │
+│  ┌─────────────────────────────────────┐                    │
+│  │ Step 1: Phone Number Input           │                   │
+│  │ - Enter country code (+91)           │                   │
+│  │ - Enter 10-digit phone number        │                   │
+│  │ - Tap "Continue"                     │                   │
+│  └─────────────────────────────────────┘                    │
 │              │                                              │
 │              ▼                                              │
-│  ┌─────────────────────────────────────┐                  │
-│  │ Step 2: OTP Verification            │                  │
-│  │ - Enter 6-digit OTP                  │                  │
-│  │ - Auto-read SMS (if available)       │                  │
-│  │ - "Resend OTP" (after 30 sec)       │                  │
-│  │ - Tap "Verify"                       │                  │
-│  └─────────────────────────────────────┘                  │
+│  ┌─────────────────────────────────────┐                    │
+│  │ Step 2: OTP Verification            │                    │
+│  │ - Enter 6-digit OTP                  │                   │
+│  │ - Auto-read SMS (if available)       │                   │
+│  │ - "Resend OTP" (after 30 sec)       │                    │
+│  │ - Tap "Verify"                       │                   │
+│  └─────────────────────────────────────┘                    │
 │              │                                              │
 │              ▼                                              │
-│  ┌─────────────────────────────────────┐                  │
-│  │ Step 3: Basic Info (Optional)        │                  │
-│  │ - Name (optional)                    │                  │
-│  │ - Age (optional)                     │                  │
-│  │ - "Skip for now" or "Continue"       │                  │
-│  └─────────────────────────────────────┘                  │
+│  ┌─────────────────────────────────────┐                    │
+│  │ Step 3: Basic Info (Optional)        │                   │
+│  │ - Name (optional)                    │                   │
+│  │ - Age (optional)                     │                   │
+│  │ - "Skip for now" or "Continue"       │                   │
+│  └─────────────────────────────────────┘                    │
 │                                                             │
 │  LOGIN FLOW:                                                │
-│  ┌─────────────────────────────────────┐                  │
-│  │ Step 1: Phone Number                 │                  │
-│  │ - Enter registered phone             │                  │
-│  │ - Tap "Login"                        │                  │
-│  └─────────────────────────────────────┘                  │
+│  ┌─────────────────────────────────────┐                    │
+│  │ Step 1: Phone Number                 │                   │
+│  │ - Enter registered phone             │                   │
+│  │ - Tap "Login"                        │                   │
+│  └─────────────────────────────────────┘                    │
 │              │                                              │
 │              ▼                                              │
-│  ┌─────────────────────────────────────┐                  │
-│  │ Step 2: OTP Verification            │                  │
-│  │ - Same as registration               │                  │
-│  └─────────────────────────────────────┘                  │
+│  ┌─────────────────────────────────────┐                    │
+│  │ Step 2: OTP Verification            │                    │
+│  │ - Same as registration               │                   │
+│  └─────────────────────────────────────┘                    │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -629,15 +629,15 @@ Challenge Screen
 │  - Current value: "₹XXX (Growth: +X%)"                      │
 │                                                             │
 │  Quick Action Cards:                                        │
-│  ┌─────────────────────────────────────┐                  │
-│  │ Card 1: "Start Learning"             │                  │
-│  │ - Progress: "Module 2 of 5"          │                  │
-│  │ - Button: "Continue Learning"        │                  │
-│  └─────────────────────────────────────┘                  │
-│  ┌─────────────────────────────────────┐                  │
-│  │ Card 2: "Invest Now"                │                  │
-│  │ - "Start with ₹10"                  │                  │
-│  │ - Button: "Invest"                   │                  │
+│  ┌─────────────────────────────────────┐                    │
+│  │ Card 1: "Start Learning"             │                   │
+│  │ - Progress: "Module 2 of 5"          │                   │
+│  │ - Button: "Continue Learning"        │                   │
+│  └─────────────────────────────────────┘                    │
+│  ┌─────────────────────────────────────┐                    │
+│  │ Card 2: "Invest Now"                │                    │
+│  │ - "Start with ₹10"                  │                    │
+│  │ - Button: "Invest"                   │                   │
 │  └─────────────────────────────────────┘                  │
 │  ┌─────────────────────────────────────┐                  │
 │  │ Card 3: "Daily Challenge"            │                  │
