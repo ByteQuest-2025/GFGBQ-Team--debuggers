@@ -1,4 +1,4 @@
-# GFGBQ-Team--debuggers
+# GFGBQ-Team-$debuggers
 Repository for $debuggers - Vibe Coding Hackathon
 # Problem Statement: Investing for Everyone
 
