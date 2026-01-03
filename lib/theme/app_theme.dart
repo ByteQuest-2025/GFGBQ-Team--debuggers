@@ -6,6 +6,9 @@ class AppTheme {
   static const Color pureBlack = Color(0xFF000000); // Pure black text
   static const Color blackSecondary = Color(0xFF1A1A1A); // Slightly softer black
   static const Color dividerColor = Color(0xFFE5E5E5); // Very subtle divider
+  
+  // Minimal Border Radius
+  static const double minimalRadius = 4.0;
 
   // Minimal Light Theme
   static ThemeData get lightTheme {
@@ -54,8 +57,8 @@ class AppTheme {
         color: warmWhite,
         elevation: 0,
         shadowColor: Colors.transparent,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(minimalRadius),
         ),
         margin: EdgeInsets.zero,
       ),
@@ -68,8 +71,8 @@ class AppTheme {
           elevation: 0,
           shadowColor: Colors.transparent,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(minimalRadius),
           ),
           textStyle: const TextStyle(
             fontSize: 15,
@@ -84,8 +87,8 @@ class AppTheme {
           foregroundColor: pureBlack,
           side: const BorderSide(color: pureBlack, width: 1),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(minimalRadius),
           ),
           textStyle: const TextStyle(
             fontSize: 15,
@@ -107,10 +110,13 @@ class AppTheme {
       ),
       
       // Floating Action Button Theme - Minimal
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
         backgroundColor: pureBlack,
         foregroundColor: warmWhite,
         elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(minimalRadius),
+        ),
       ),
       
       // Input Decoration Theme - Minimal borders
@@ -239,8 +245,8 @@ class AppTheme {
         labelStyle: const TextStyle(color: pureBlack),
         secondaryLabelStyle: const TextStyle(color: warmWhite),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(minimalRadius),
         ),
         elevation: 0,
       ),
