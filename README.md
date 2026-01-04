@@ -28,3 +28,4 @@ As a result, millions of people rely solely on cash savings or informal methods,
 ## Need Statement
 There is a strong need for a simple, transparent, and trustworthy micro-investment platform that allows first-time users to begin investing with very small amounts (as low as ₹10) in safe, low-risk financial instruments, without fear or confusion.
 
+resuming the working
