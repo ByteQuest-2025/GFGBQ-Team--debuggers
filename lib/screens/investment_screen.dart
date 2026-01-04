@@ -354,6 +354,7 @@ class _InvestmentScreenState extends State<InvestmentScreen> {
     final prefs = await SharedPreferences.getInstance();
     final totalInvested = prefs.getDouble('total_invested') ?? 0.0;
     final currentValue = prefs.getDouble('current_value') ?? 0.0;
+    final investmentCount = prefs.getInt('investment_count') ?? 0;
 
     // For simplicity, assume immediate small growth
     final newInvested = totalInvested + amount;
@@ -361,6 +362,7 @@ class _InvestmentScreenState extends State<InvestmentScreen> {
 
     await prefs.setDouble('total_invested', newInvested);
     await prefs.setDouble('current_value', newValue);
+    await prefs.setInt('investment_count', investmentCount + 1);
 
     if (!mounted) return;
     Navigator.pop(context); // Close loading
