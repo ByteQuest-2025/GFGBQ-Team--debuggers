@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Permissions for Speech-to-Text and Internet -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    
     <application
         android:label="micro_invest"
         android:name="${applicationName}"
@@ -41,5 +45,21 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- UPI Payment Apps -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="upi"/>
+        </intent>
+        <!-- PhonePe -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="phonepe"/>
+        </intent>
+        <!-- GPay -->
+        <package android:name="com.google.android.apps.nbu.paisa.user"/>
+        <!-- PhonePe -->
+        <package android:name="com.phonepe.app"/>
+        <!-- Paytm -->
+        <package android:name="net.one97.paytm"/>
     </queries>
 </manifest>

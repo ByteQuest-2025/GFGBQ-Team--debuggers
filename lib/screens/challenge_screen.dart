@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
-import 'learning_screen.dart';
+import '../services/app_state.dart';
+import '../models/learning_model.dart';
+import 'lesson_view_screen.dart';
 
 class ChallengeScreen extends StatefulWidget {
   const ChallengeScreen({super.key});
@@ -12,144 +14,88 @@ class ChallengeScreen extends StatefulWidget {
 }
 
 class _ChallengeScreenState extends State<ChallengeScreen> {
-  int _currentStreak = 0;
-  int _totalXP = 0;
-  bool _todayChallengeCompleted = false;
-  String _todayChallenge = 'Read 1 lesson';
-  int _challengeReward = 20;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadChallengeData();
-  }
-
-  Future<void> _loadChallengeData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastChallengeDate = prefs.getString('last_challenge_date');
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    
-    setState(() {
-      _currentStreak = prefs.getInt('current_streak') ?? 0;
-      _totalXP = prefs.getInt('total_xp') ?? 0;
-      _todayChallengeCompleted = lastChallengeDate == today;
-    });
-  }
-
-  Future<void> _completeChallenge() async {
-    if (_todayChallengeCompleted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Challenge already completed today!'),
-          backgroundColor: AppColors.pureBlack,
-        ),
-      );
-      return;
-    }
-
-    // Navigate to relevant screen based on challenge
-    if (_todayChallenge.contains('lesson')) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const LearningScreen()),
-      ).then((_) => _claimReward());
-    } else {
-      _claimReward();
-    }
-  }
-
-  Future<void> _claimReward() async {
-    final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().split('T')[0];
-    final lastChallengeDate = prefs.getString('last_challenge_date');
-    final yesterday = DateTime.now().subtract(const Duration(days: 1))
-        .toIso8601String()
-        .split('T')[0];
-
-    // Update streak
-    int newStreak;
-    if (lastChallengeDate == yesterday) {
-      // Continue streak
-      newStreak = (prefs.getInt('current_streak') ?? 0) + 1;
-    } else if (lastChallengeDate == today) {
-      // Already completed today
-      return;
-    } else {
-      // New streak
-      newStreak = 1;
-    }
-
-    // Award XP
-    final currentXP = prefs.getInt('total_xp') ?? 0;
-    final newXP = currentXP + _challengeReward;
-
-    // Save data
-    await prefs.setString('last_challenge_date', today);
-    await prefs.setInt('current_streak', newStreak);
-    await prefs.setInt('total_xp', newXP);
-
-    // Check level up
-    final currentLevel = prefs.getInt('current_level') ?? 1;
-    final newLevel = newXP ~/ 1000 + 1;
-    if (newLevel > currentLevel) {
-      await prefs.setInt('current_level', newLevel);
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _todayChallengeCompleted = true;
-      _currentStreak = newStreak;
-      _totalXP = newXP;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Challenge completed! +$_challengeReward XP'),
-        backgroundColor: AppColors.pureBlack,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.warmWhite,
-      appBar: AppBar(
-        title: const Text('Daily Challenge'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Today's Challenge Card
-            _buildTodayChallengeCard(),
-            const SizedBox(height: 24),
-            
-            // Streak Section
-            _buildStreakSection(),
-            const SizedBox(height: 24),
-            
-            // Weekly Summary
-            _buildWeeklySummary(),
-          ],
-        ),
-      ),
+    return Consumer<AppState>(
+      builder: (context, appState, child) {
+        final user = appState.user;
+        final currentStreak = user?.currentStreak ?? 0;
+        final totalXP = user?.totalXP ?? 0;
+        final completedLessons = appState.totalCompletedLessons;
+        final totalLessons = appState.totalLessons;
+
+        return Scaffold(
+          backgroundColor: AppColors.warmWhite,
+          appBar: AppBar(title: const Text('Daily Challenge')),
+          body: RefreshIndicator(
+            onRefresh: () => appState.refresh(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTodayChallengeCard(appState, completedLessons, totalLessons),
+                  const SizedBox(height: 24),
+                  _buildStreakSection(currentStreak),
+                  const SizedBox(height: 24),
+                  _buildProgressSection(totalXP, completedLessons, totalLessons),
+                  const SizedBox(height: 24),
+                  _buildWeeklyChallenges(appState),
+                  const SizedBox(height: 24),
+                  _buildRewardsSection(),
+                  const SizedBox(height: 100),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
-  Widget _buildTodayChallengeCard() {
+  Widget _buildTodayChallengeCard(AppState appState, int completedLessons, int totalLessons) {
+    // Determine today's challenge based on progress
+    String challengeTitle;
+    String challengeDescription;
+    int xpReward;
+    bool isCompleted = false;
+    VoidCallback? onComplete;
+
+    if (completedLessons == 0) {
+      challengeTitle = 'Start Your Journey';
+      challengeDescription = 'Complete your first lesson';
+      xpReward = 50;
+      onComplete = () => _navigateToLearn(appState);
+    } else if (completedLessons < 5) {
+      challengeTitle = 'Keep Learning';
+      challengeDescription = 'Complete 1 more lesson today';
+      xpReward = 30;
+      onComplete = () => _navigateToLearn(appState);
+    } else if (appState.investments.isEmpty) {
+      challengeTitle = 'Make Your First Investment';
+      challengeDescription = 'Invest as little as ₹10';
+      xpReward = 100;
+      onComplete = () => _navigateToInvest();
+    } else {
+      challengeTitle = 'Daily Check-in';
+      challengeDescription = 'Review your portfolio';
+      xpReward = 20;
+      isCompleted = true;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.warmWhite,
-        border: Border.all(
-          color: _todayChallengeCompleted
-              ? AppColors.pureBlack
-              : AppColors.dividerColor,
-          width: _todayChallengeCompleted ? 2 : 1,
-        ),
-        borderRadius: BorderRadius.circular(AppTheme.minimalRadius),
+        gradient: isCompleted ? AppColors.successGradient : AppColors.primaryGradient,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: [
+          BoxShadow(
+            color: (isCompleted ? AppColors.success : AppColors.primary).withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,24 +103,31 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
+              const Text(
                 "Today's Challenge",
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.pureBlack,
-                    ),
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-              if (_todayChallengeCompleted)
+              if (isCompleted)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.pureBlack,
-                    borderRadius: BorderRadius.circular(AppTheme.minimalRadius),
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    'Completed',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.warmWhite,
-                        ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.check_circle_rounded, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Text(
+                        'Completed',
+                        style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ),
                 ),
             ],
@@ -183,16 +136,16 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
           Row(
             children: [
               Container(
-                width: 48,
-                height: 48,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
-                  color: AppColors.pureBlack,
-                  borderRadius: BorderRadius.circular(AppTheme.minimalRadius),
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
-                  Icons.emoji_events,
-                  color: AppColors.warmWhite,
-                  size: 24,
+                child: Icon(
+                  isCompleted ? Icons.emoji_events_rounded : Icons.flag_rounded,
+                  color: Colors.white,
+                  size: 28,
                 ),
               ),
               const SizedBox(width: 16),
@@ -201,17 +154,20 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _todayChallenge,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppColors.pureBlack,
-                          ),
+                      challengeTitle,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Reward: +$_challengeReward XP',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: AppColors.blackSecondary,
-                          ),
+                      challengeDescription,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 14,
+                      ),
                     ),
                   ],
                 ),
@@ -219,13 +175,93 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _todayChallengeCompleted ? null : _completeChallenge,
-              child: Text(
-                _todayChallengeCompleted ? 'Completed' : 'Complete Challenge',
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🪙', style: TextStyle(fontSize: 16)),
+                    const SizedBox(width: 6),
+                    Text(
+                      '+$xpReward XP',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              if (!isCompleted && onComplete != null)
+                ElevatedButton(
+                  onPressed: onComplete,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  ),
+                  child: const Text('Start'),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStreakSection(int currentStreak) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: AppColors.warning.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(30),
+            ),
+            child: const Center(
+              child: Text('🔥', style: TextStyle(fontSize: 32)),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$currentStreak Day Streak',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: AppColors.warning,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  currentStreak == 0
+                      ? 'Start your streak today!'
+                      : currentStreak < 7
+                          ? 'Keep it going! 🎯'
+                          : currentStreak < 30
+                              ? 'Great progress! 💪'
+                              : 'Amazing dedication! 🏆',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.warning,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -233,119 +269,286 @@ class _ChallengeScreenState extends State<ChallengeScreen> {
     );
   }
 
-  Widget _buildStreakSection() {
+  Widget _buildProgressSection(int totalXP, int completedLessons, int totalLessons) {
+    final level = (totalXP ~/ 1000) + 1;
+    final xpInLevel = totalXP % 1000;
+    final progressToNextLevel = xpInLevel / 1000;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.warmWhite,
-        border: Border.all(color: AppColors.dividerColor),
-        borderRadius: BorderRadius.circular(AppTheme.minimalRadius),
+        color: AppColors.cardBg,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(color: AppColors.divider),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('Your Progress', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 20),
           Row(
             children: [
-              const Text('🔥'),
-              const SizedBox(width: 8),
-              Text(
-                'Current Streak',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.pureBlack,
-                    ),
+              Expanded(
+                child: _buildProgressItem(
+                  icon: Icons.star_rounded,
+                  label: 'Total XP',
+                  value: '$totalXP',
+                  color: AppColors.gold,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildProgressItem(
+                  icon: Icons.school_rounded,
+                  label: 'Lessons',
+                  value: '$completedLessons/$totalLessons',
+                  color: AppColors.info,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _buildProgressItem(
+                  icon: Icons.trending_up_rounded,
+                  label: 'Level',
+                  value: '$level',
+                  color: AppColors.success,
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
-            '$_currentStreak days',
-            style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                  color: AppColors.pureBlack,
-                ),
+            'Level $level Progress',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progressToNextLevel,
+              minHeight: 8,
+              backgroundColor: AppColors.divider,
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
-            _currentStreak == 0
-                ? 'Start your streak today!'
-                : _currentStreak < 7
-                    ? 'Keep it going!'
-                    : _currentStreak < 30
-                        ? 'Great progress!'
-                        : 'Amazing dedication!',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.blackSecondary,
-                ),
+            '$xpInLevel / 1000 XP to Level ${level + 1}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppColors.textSecondary,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildWeeklySummary() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.warmWhite,
-        border: Border.all(color: AppColors.dividerColor),
-        borderRadius: BorderRadius.circular(AppTheme.minimalRadius),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'This Week',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.pureBlack,
-                ),
-          ),
-          const SizedBox(height: 16),
-          _buildSummaryItem(
-            icon: Icons.check_circle,
-            label: 'Challenges Completed',
-            value: _todayChallengeCompleted ? '1' : '0',
-          ),
-          const SizedBox(height: 12),
-          _buildSummaryItem(
-            icon: Icons.star,
-            label: 'XP Earned',
-            value: '$_totalXP',
-          ),
-          const SizedBox(height: 12),
-          _buildSummaryItem(
-            icon: Icons.local_fire_department,
-            label: 'Streak',
-            value: '$_currentStreak days',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummaryItem({
+  Widget _buildProgressItem({
     required IconData icon,
     required String label,
     required String value,
+    required Color color,
   }) {
-    return Row(
+    return Column(
       children: [
-        Icon(icon, size: 20, color: AppColors.blackSecondary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.blackSecondary,
-                ),
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
         ),
         Text(
-          value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppColors.pureBlack,
-                fontWeight: FontWeight.w400,
-              ),
+          label,
+          style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
     );
+  }
+
+  Widget _buildWeeklyChallenges(AppState appState) {
+    final challenges = [
+      {'title': 'Complete 3 lessons', 'xp': 100, 'progress': appState.totalCompletedLessons, 'target': 3},
+      {'title': 'Make 2 investments', 'xp': 150, 'progress': appState.investments.length, 'target': 2},
+      {'title': 'Create a goal', 'xp': 50, 'progress': appState.goals.length, 'target': 1},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Weekly Challenges', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 16),
+        ...challenges.map((challenge) {
+          final progress = (challenge['progress'] as int);
+          final target = (challenge['target'] as int);
+          final isCompleted = progress >= target;
+          
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: isCompleted ? AppColors.successLight : AppColors.cardBg,
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+              border: Border.all(
+                color: isCompleted ? AppColors.success : AppColors.divider,
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isCompleted ? AppColors.success : AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    isCompleted ? Icons.check_rounded : Icons.flag_rounded,
+                    color: isCompleted ? Colors.white : AppColors.primary,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        challenge['title'] as String,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          decoration: isCompleted ? TextDecoration.lineThrough : null,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(2),
+                              child: LinearProgressIndicator(
+                                value: (progress / target).clamp(0.0, 1.0),
+                                minHeight: 4,
+                                backgroundColor: AppColors.divider,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  isCompleted ? AppColors.success : AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '$progress/$target',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isCompleted ? AppColors.success.withOpacity(0.2) : AppColors.gold.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '+${challenge['xp']} XP',
+                    style: TextStyle(
+                      color: isCompleted ? AppColors.success : AppColors.gold,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildRewardsSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: AppColors.accentGradient,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+      ),
+      child: Row(
+        children: [
+          const Text('🎁', style: TextStyle(fontSize: 40)),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Streak Rewards',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Maintain a 7-day streak to earn bonus XP!',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToLearn(AppState appState) {
+    // Find the next incomplete module
+    for (final module in LearningData.modules) {
+      if (!appState.isModuleUnlocked(module.id)) continue;
+      final completed = appState.getModuleCompletedLessons(module.id);
+      if (completed < module.lessons.length) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => LessonViewScreen(
+              module: module,
+              startLessonIndex: completed,
+            ),
+          ),
+        );
+        return;
+      }
+    }
+    // If all completed, go to first module
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LessonViewScreen(
+          module: LearningData.modules.first,
+          startLessonIndex: 0,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToInvest() {
+    Navigator.pop(context);
+    // The parent will handle navigation to invest tab
   }
 }

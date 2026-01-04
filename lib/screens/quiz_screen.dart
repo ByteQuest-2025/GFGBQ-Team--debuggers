@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import '../models/learning_model.dart';
+import '../services/app_state.dart';
+import '../services/language_service.dart';
 
 class QuizScreen extends StatefulWidget {
-  final int moduleNumber;
-  final int lessonNumber;
-
-  const QuizScreen({
-    super.key,
-    required this.moduleNumber,
-    required this.lessonNumber,
-  });
-
+  final ModuleModel module;
+  const QuizScreen({super.key, required this.module});
   @override
   State<QuizScreen> createState() => _QuizScreenState();
 }
@@ -22,313 +18,167 @@ class _QuizScreenState extends State<QuizScreen> {
   int? _selectedAnswer;
   int _correctAnswers = 0;
   bool _showResultsScreen = false;
+  bool _answerSubmitted = false;
 
-  final List<Map<String, dynamic>> _questions = [
-    {
-      'question': 'What is money?',
-      'options': [
-        'A medium of exchange',
-        'Only coins and notes',
-        'Something only rich people have',
-      ],
-      'correct': 0,
-    },
-    {
-      'question': 'What happens when you save money?',
-      'options': [
-        'It stays the same amount',
-        'It automatically grows',
-        'It disappears',
-      ],
-      'correct': 0,
-    },
-    {
-      'question': 'What happens when you invest money?',
-      'options': [
-        'It can grow over time',
-        'It always stays the same',
-        'You lose it immediately',
-      ],
-      'correct': 0,
-    },
-  ];
+  List<QuizQuestion> get _questions => widget.module.quiz;
 
   void _selectAnswer(int index) {
-    setState(() {
-      _selectedAnswer = index;
-    });
+    if (_answerSubmitted) return;
+    setState(() => _selectedAnswer = index);
+  }
+
+  void _submitAnswer() {
+    if (_selectedAnswer == null || _answerSubmitted) return;
+    setState(() => _answerSubmitted = true);
+    if (_selectedAnswer == _questions[_currentQuestionIndex].correctIndex) _correctAnswers++;
   }
 
   void _nextQuestion() {
-    if (_selectedAnswer == null) return;
-
-    if (_selectedAnswer == _questions[_currentQuestionIndex]['correct']) {
-      _correctAnswers++;
-    }
-
     if (_currentQuestionIndex < _questions.length - 1) {
-      setState(() {
-        _currentQuestionIndex++;
-        _selectedAnswer = null;
-      });
+      setState(() { _currentQuestionIndex++; _selectedAnswer = null; _answerSubmitted = false; });
     } else {
       _showResults();
     }
   }
 
   Future<void> _showResults() async {
-    setState(() {
-      _showResultsScreen = true;
-    });
-
-    // Award XP based on score
-    final prefs = await SharedPreferences.getInstance();
-    final xp = prefs.getInt('total_xp') ?? 0;
-    final xpEarned = (_correctAnswers * 10) + 20; // Base 20 + 10 per correct
-    await prefs.setInt('total_xp', xp + xpEarned);
-
-    // Check level up
-    final currentLevel = prefs.getInt('current_level') ?? 1;
-    final newLevel = (xp + xpEarned) ~/ 1000 + 1;
-    if (newLevel > currentLevel) {
-      await prefs.setInt('current_level', newLevel);
-    }
+    final appState = context.read<AppState>();
+    await appState.completeQuiz(widget.module.id, _correctAnswers, _questions.length);
+    if (!mounted) return;
+    setState(() => _showResultsScreen = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_showResultsScreen) {
-      return _buildResults();
-    }
-
+    if (_showResultsScreen) return _buildResults();
+    if (_questions.isEmpty) return _buildNoQuestions();
     final question = _questions[_currentQuestionIndex];
+    final langService = context.watch<LanguageService>();
+    final isHindi = langService.currentLanguage != AppLanguage.english;
+    final questionText = isHindi ? question.questionHindi : question.question;
+    final options = isHindi ? question.optionsHindi : question.options;
+    final explanation = isHindi ? (question.explanationHindi ?? question.explanation) : question.explanation;
 
     return Scaffold(
       backgroundColor: AppColors.warmWhite,
       appBar: AppBar(
-        title: const Text('Quiz'),
+        title: Text(isHindi ? 'क्विज़: ${widget.module.titleHindi}' : 'Quiz: ${widget.module.title}'),
+        leading: IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => _showExitConfirmation()),
+        actions: [
+          IconButton(
+            icon: Icon(
+              langService.isSpeaking ? Icons.stop_circle_rounded : Icons.volume_up_rounded,
+              color: langService.isSpeaking ? AppColors.error : AppColors.textPrimary,
+            ),
+            onPressed: () async {
+              final svc = LanguageService();
+              if (svc.isSpeaking) {
+                await svc.stop();
+              } else {
+                await svc.speak(questionText);
+              }
+            },
+          ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Progress
-            Text(
-              'Question ${_currentQuestionIndex + 1} of ${_questions.length}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.blackSecondary,
-                  ),
-            ),
+            Text(isHindi ? 'प्रश्न ${_currentQuestionIndex + 1} / ${_questions.length}' : 'Question ${_currentQuestionIndex + 1} of ${_questions.length}', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.textSecondary)),
             const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(AppTheme.minimalRadius),
-              child: LinearProgressIndicator(
-                value: (_currentQuestionIndex + 1) / _questions.length,
-                minHeight: 4,
-                backgroundColor: AppColors.dividerColor,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.pureBlack,
-                ),
-              ),
-            ),
+            ClipRRect(borderRadius: BorderRadius.circular(4), child: LinearProgressIndicator(value: (_currentQuestionIndex + 1) / _questions.length, minHeight: 6, backgroundColor: AppColors.divider, valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary))),
             const SizedBox(height: 32),
-            
-            // Question
-            Text(
-              question['question'],
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: AppColors.pureBlack,
-                  ),
-            ),
+            Text(questionText, style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 24),
-            
-            // Options
-            ...List.generate(
-              question['options'].length,
-              (index) => Padding(
+            ...List.generate(options.length, (index) {
+              final isSelected = _selectedAnswer == index;
+              final isCorrect = index == question.correctIndex;
+              final showResult = _answerSubmitted;
+              Color bgColor = AppColors.cardBg, borderColor = AppColors.divider, textColor = AppColors.textPrimary;
+              if (showResult) {
+                if (isCorrect) { bgColor = AppColors.successLight; borderColor = AppColors.success; textColor = AppColors.success; }
+                else if (isSelected) { bgColor = AppColors.errorLight; borderColor = AppColors.error; textColor = AppColors.error; }
+              } else if (isSelected) { bgColor = AppColors.primary; borderColor = AppColors.primary; textColor = Colors.white; }
+              return Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: InkWell(
-                  onTap: () => _selectAnswer(index),
+                  onTap: _answerSubmitted ? null : () => _selectAnswer(index),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   child: Container(
                     padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: _selectedAnswer == index
-                          ? AppColors.pureBlack
-                          : AppColors.warmWhite,
-                      border: Border.all(
-                        color: _selectedAnswer == index
-                            ? AppColors.pureBlack
-                            : AppColors.dividerColor,
-                      ),
-                      borderRadius: BorderRadius.circular(AppTheme.minimalRadius),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _selectedAnswer == index
-                                  ? AppColors.warmWhite
-                                  : AppColors.pureBlack,
-                              width: 2,
-                            ),
-                            color: _selectedAnswer == index
-                                ? AppColors.pureBlack
-                                : Colors.transparent,
-                          ),
-                          child: _selectedAnswer == index
-                              ? const Icon(
-                                  Icons.check,
-                                  size: 16,
-                                  color: AppColors.warmWhite,
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            question['options'][index],
-                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                  color: _selectedAnswer == index
-                                      ? AppColors.warmWhite
-                                      : AppColors.pureBlack,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    decoration: BoxDecoration(color: bgColor, border: Border.all(color: borderColor, width: showResult && (isCorrect || isSelected) ? 2 : 1), borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+                    child: Row(children: [
+                      Container(width: 28, height: 28, decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: isSelected && !showResult ? Colors.white : borderColor, width: 2), color: isSelected && !showResult ? AppColors.primary : Colors.transparent),
+                        child: showResult ? Icon(isCorrect ? Icons.check_rounded : (isSelected ? Icons.close_rounded : null), size: 18, color: isCorrect ? AppColors.success : AppColors.error) : isSelected ? const Icon(Icons.check, size: 16, color: Colors.white) : Center(child: Text(String.fromCharCode(65 + index), style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)))),
+                      const SizedBox(width: 14),
+                      Expanded(child: Text(options[index], style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: textColor, fontWeight: showResult && isCorrect ? FontWeight.w600 : FontWeight.w400))),
+                    ]),
                   ),
                 ),
-              ),
-            ),
+              );
+            }),
+            if (_answerSubmitted && explanation != null) ...[
+              const SizedBox(height: 16),
+              Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.infoLight, borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [const Icon(Icons.lightbulb_outline_rounded, color: AppColors.info), const SizedBox(width: 12), Expanded(child: Text(explanation, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppColors.info)))])),
+            ],
             const SizedBox(height: 32),
-            
-            // Next button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _selectedAnswer == null ? null : _nextQuestion,
-                child: Text(
-                  _currentQuestionIndex < _questions.length - 1
-                      ? 'Next'
-                      : 'Submit',
-                ),
-              ),
-            ),
+            SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _selectedAnswer == null ? null : _answerSubmitted ? _nextQuestion : _submitAnswer, child: Text(_answerSubmitted ? (_currentQuestionIndex < _questions.length - 1 ? (isHindi ? 'अगला प्रश्न' : 'Next Question') : (isHindi ? 'परिणाम देखें' : 'See Results')) : (isHindi ? 'जवाब दें' : 'Submit Answer')))),
           ],
         ),
       ),
     );
+  }
+
+
+  Widget _buildNoQuestions() {
+    return Scaffold(backgroundColor: AppColors.warmWhite, appBar: AppBar(title: const Text('Quiz')),
+      body: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+        const Icon(Icons.quiz_outlined, size: 64, color: AppColors.textSecondary), const SizedBox(height: 16),
+        Text('No quiz questions available', style: Theme.of(context).textTheme.titleMedium), const SizedBox(height: 24),
+        ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('Go Back')),
+      ])));
   }
 
   Widget _buildResults() {
-    final score = _correctAnswers;
-    final total = _questions.length;
-    final percentage = (score / total * 100).round();
-    final xpEarned = (score * 10) + 20;
-
+    final score = _correctAnswers, total = _questions.length;
+    final percentage = total > 0 ? (score / total * 100).round() : 0;
+    final passed = percentage >= 60;
+    final xpEarned = passed ? 30 + (score * 10) : score * 5;
     return Scaffold(
       backgroundColor: AppColors.warmWhite,
-      appBar: AppBar(
-        title: const Text('Quiz Results'),
-      ),
+      appBar: AppBar(title: const Text('Quiz Results'), automaticallyImplyLeading: false),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const SizedBox(height: 32),
-            // Score
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                color: AppColors.pureBlack,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '$score/$total',
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        color: AppColors.warmWhite,
-                      ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              percentage >= 80
-                  ? 'Excellent! 🎉'
-                  : percentage >= 60
-                      ? 'Good Job! 👍'
-                      : 'Keep Learning! 📚',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: AppColors.pureBlack,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'You got $score out of $total correct',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: AppColors.blackSecondary,
-                  ),
-            ),
-            const SizedBox(height: 32),
-            
-            // XP earned
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: AppColors.warmWhite,
-                border: Border.all(color: AppColors.dividerColor),
-                borderRadius: BorderRadius.circular(AppTheme.minimalRadius),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.star, color: AppColors.pureBlack),
-                  const SizedBox(width: 8),
-                  Text(
-                    '+$xpEarned XP',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: AppColors.pureBlack,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            
-            // Buttons
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                child: const Text('Continue Learning'),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () {
-              setState(() {
-                _currentQuestionIndex = 0;
-                _selectedAnswer = null;
-                _correctAnswers = 0;
-                _showResultsScreen = false;
-              });
-              },
-              child: const Text('Retake Quiz'),
-            ),
+        child: Column(children: [
+          const SizedBox(height: 32),
+          Container(width: 140, height: 140, decoration: BoxDecoration(gradient: passed ? AppColors.successGradient : AppColors.primaryGradient, shape: BoxShape.circle, boxShadow: [BoxShadow(color: (passed ? AppColors.success : AppColors.primary).withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8))]),
+            child: Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('$score/$total', style: Theme.of(context).textTheme.displaySmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w700)), Text('$percentage%', style: const TextStyle(color: Colors.white70, fontSize: 16))]))),
+          const SizedBox(height: 32),
+          Text(passed ? percentage >= 80 ? 'Excellent! 🎉' : 'Good Job! 👍' : 'Keep Learning! 📚', style: Theme.of(context).textTheme.headlineMedium),
+          const SizedBox(height: 8),
+          Text(passed ? 'You passed the quiz!' : 'You need 60% to pass. Try again!', style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppColors.textSecondary)),
+          const SizedBox(height: 32),
+          Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: passed ? AppColors.successLight : AppColors.warningLight, borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.star_rounded, color: passed ? AppColors.success : AppColors.warning, size: 28), const SizedBox(width: 12), Text('+$xpEarned XP', style: Theme.of(context).textTheme.titleLarge?.copyWith(color: passed ? AppColors.success : AppColors.warning, fontWeight: FontWeight.w700))])),
+          if (passed && widget.module.badgeId != null) ...[
+            const SizedBox(height: 16),
+            Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: AppColors.gold.withOpacity(0.1), borderRadius: BorderRadius.circular(AppTheme.radiusMedium), border: Border.all(color: AppColors.gold)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [const Text('🏆', style: TextStyle(fontSize: 28)), const SizedBox(width: 12), Text('Badge Earned!', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppColors.gold, fontWeight: FontWeight.w600))])),
           ],
-        ),
+          const SizedBox(height: 40),
+          SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => Navigator.pop(context), child: Text(passed ? 'Continue Learning' : 'Back to Lessons'))),
+          const SizedBox(height: 12),
+          if (!passed) SizedBox(width: double.infinity, child: OutlinedButton(onPressed: () => setState(() { _currentQuestionIndex = 0; _selectedAnswer = null; _correctAnswers = 0; _showResultsScreen = false; _answerSubmitted = false; }), child: const Text('Retake Quiz'))),
+        ]),
       ),
     );
   }
-}
 
+  void _showExitConfirmation() {
+    showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Exit Quiz?'), content: const Text('Your progress will be lost if you exit now.'),
+      actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), ElevatedButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, style: ElevatedButton.styleFrom(backgroundColor: AppColors.error), child: const Text('Exit'))]));
+  }
+}

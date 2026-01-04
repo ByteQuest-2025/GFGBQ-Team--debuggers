@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_theme.dart';
 import 'otp_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,7 +16,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _phoneController = TextEditingController();
   final _nameController = TextEditingController();
   bool _isLoading = false;
-  bool _isLogin = true; // Toggle between login and registration
+  bool _isLogin = true;
+  bool _whatsappConsent = true;
 
   @override
   void dispose() {
@@ -25,24 +27,13 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isLoading = true;
-    });
-
-    // Simulate API call delay
+    setState(() => _isLoading = true);
     await Future.delayed(const Duration(seconds: 1));
-
     if (!mounted) return;
+    setState(() => _isLoading = false);
 
-    setState(() {
-      _isLoading = false;
-    });
-
-    // Navigate to OTP screen
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => OtpScreen(
@@ -58,10 +49,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.warmWhite,
-      appBar: AppBar(
-        backgroundColor: AppColors.warmWhite,
-        elevation: 0,
-      ),
+      appBar: AppBar(backgroundColor: AppColors.warmWhite, elevation: 0),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -70,14 +58,27 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                const SizedBox(height: 16),
+                // Logo
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    gradient: AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: Colors.white,
+                    size: 32,
+                  ),
+                ),
                 const SizedBox(height: 32),
+                
                 // Title
                 Text(
-                  _isLogin ? 'Welcome Back' : 'Create Account',
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.w400,
-                        color: AppColors.pureBlack,
-                      ),
+                  _isLogin ? 'Welcome Back!' : 'Chaliye shuru karte hain',
+                  style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -85,164 +86,162 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? 'Login to continue your investment journey'
                       : 'Start your investment journey today',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.blackSecondary,
-                      ),
-                ),
-                const SizedBox(height: 48),
-                
-                // Name input (only for registration)
-                if (!_isLogin) ...[
-                  Text(
-                    'Name',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          color: AppColors.pureBlack,
-                        ),
+                    color: AppColors.textSecondary,
                   ),
+                ),
+                const SizedBox(height: 40),
+                
+                // Name input (registration only)
+                if (!_isLogin) ...[
+                  Text('Name', style: Theme.of(context).textTheme.titleSmall),
                   const SizedBox(height: 8),
                   TextFormField(
                     controller: _nameController,
                     keyboardType: TextInputType.name,
                     textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(
-                      hintText: 'Enter your name',
-                      hintStyle: TextStyle(color: AppColors.blackSecondary),
-                      border: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.dividerColor),
-                      ),
-                      enabledBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.dividerColor),
-                      ),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(color: AppColors.pureBlack, width: 1),
-                      ),
+                    decoration: const InputDecoration(
+                      hintText: 'PAN card jaise naam likhein',
+                      prefixIcon: Icon(Icons.person_outline_rounded),
                     ),
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: AppColors.pureBlack,
-                        ),
                     validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your name';
-                      }
-                      if (value.length < 2) {
-                        return 'Name must be at least 2 characters';
-                      }
+                      if (value == null || value.isEmpty) return 'Please enter your name';
+                      if (value.length < 2) return 'Name must be at least 2 characters';
                       return null;
                     },
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
                 ],
                 
-                // Phone number input
-                Text(
-                  'Phone Number',
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: AppColors.pureBlack,
-                      ),
-                ),
+                // Phone number
+                Text('Phone Number', style: Theme.of(context).textTheme.titleSmall),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    // Country code
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(
-                            color: AppColors.dividerColor,
-                            width: 1,
-                          ),
-                        ),
-                      ),
-                      child: Text(
-                        '+91',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.pureBlack,
-                            ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    // Phone number field
-                    Expanded(
-                      child: TextFormField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(10),
-                        ],
-                        decoration: InputDecoration(
-                          hintText: 'Enter 10-digit number',
-                          hintStyle: TextStyle(color: AppColors.blackSecondary),
-                          border: UnderlineInputBorder(
-                            borderSide: BorderSide(color: AppColors.dividerColor),
-                          ),
-                          enabledBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: AppColors.dividerColor),
-                          ),
-                          focusedBorder: UnderlineInputBorder(
-                            borderSide: BorderSide(color: AppColors.pureBlack, width: 1),
-                          ),
-                        ),
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                              color: AppColors.pureBlack,
-                            ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter phone number';
-                          }
-                          if (value.length != 10) {
-                            return 'Phone number must be 10 digits';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(10),
                   ],
+                  decoration: InputDecoration(
+                    hintText: 'Enter 10-digit number',
+                    prefixIcon: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🇮🇳', style: TextStyle(fontSize: 20)),
+                          const SizedBox(width: 8),
+                          Text(
+                            '+91',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            width: 1,
+                            height: 24,
+                            color: AppColors.divider,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Please enter phone number';
+                    if (value.length != 10) return 'Phone number must be 10 digits';
+                    return null;
+                  },
                 ),
+                
+                if (!_isLogin) ...[
+                  const SizedBox(height: 16),
+                  // WhatsApp consent
+                  InkWell(
+                    onTap: () => setState(() => _whatsappConsent = !_whatsappConsent),
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: _whatsappConsent,
+                          onChanged: (v) => setState(() => _whatsappConsent = v ?? true),
+                          activeColor: AppColors.primary,
+                        ),
+                        const Text('📱', style: TextStyle(fontSize: 18)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Mujhe WhatsApp par updates bhejiye',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                
                 const SizedBox(height: 32),
                 
                 // Submit button
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleSubmit,
-                    child: _isLoading
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppColors.warmWhite),
-                            ),
-                          )
-                        : Text(_isLogin ? 'Login' : 'Continue'),
-                  ),
+                ElevatedButton(
+                  onPressed: _isLoading ? null : _handleSubmit,
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(_isLogin ? 'Get OTP' : 'Continue'),
                 ),
                 const SizedBox(height: 24),
                 
-                // Toggle between login and registration
+                // Toggle login/register
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      _isLogin
-                          ? "Don't have an account? "
-                          : 'Already have an account? ',
+                      _isLogin ? "Don't have an account? " : 'Already have an account? ',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.blackSecondary,
-                          ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        setState(() {
-                          _isLogin = !_isLogin;
-                        });
-                      },
-                      child: Text(
-                        _isLogin ? 'Register' : 'Login',
+                        color: AppColors.textSecondary,
                       ),
                     ),
+                    TextButton(
+                      onPressed: () => setState(() => _isLogin = !_isLogin),
+                      child: Text(_isLogin ? 'Register' : 'Login'),
+                    ),
                   ],
+                ),
+                
+                // Why we need this
+                const SizedBox(height: 32),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.infoLight,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded, color: AppColors.info, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Why do we need this?',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              color: AppColors.info,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '• OTP bhejne ke liye\n• Investment updates ke liye\n• Aapki security ke liye',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -252,4 +251,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-
